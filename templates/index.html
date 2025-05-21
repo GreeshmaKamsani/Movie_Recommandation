@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Recommendation</title>
+</head>
+<body>
+    <h1>Movie Recommendation System</h1>
+    <form method="POST">
+        <label for="movieId">Movie ID:</label>
+        <input type="text" name="movieId" required>
+        <br>
+        <label for="rating">Your Rating (1-5):</label>
+        <input type="number" name="rating" min="1" max="5" required>
+        <br>
+        <label for="sentiment">Your Sentiment:</label>
+        <input type="text" name="sentiment" required>
+        <br>
+        <label for="recommendation_type">Recommendation Type:</label>
+        <select name="recommendation_type">
+            <option value="rating">Rating Based</option>
+            <option value="sentiment">Sentiment Based</option>
+            <option value="hybrid">Hybrid</option>
+        </select>
+        <br>
+        <button type="submit">Get Recommendations</button>
+    </form>
+
+    {% if movies %}
+        <h2>Recommended Movies:</h2>
+        <ul>
+            {% for movie in movies.iterrows() %}
+                <li>{{ movie[1]['title'] }} - Rating: {{ movie[1]['rating'] }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>

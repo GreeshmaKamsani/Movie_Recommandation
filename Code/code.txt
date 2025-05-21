@@ -1,0 +1,121 @@
+from flask import Flask, render_template, request
+import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_squared_error
+# Initialize Flask app
+app = Flask(_name_)
+# Load the dataset
+df =
+pd.read_csv("/Users/GreeshmaKamsani/Desktop/Project/minor/minorcode/trimmed_dataset_10000.csv")
+# Clean the dataset, remove NaN values
+df.dropna(subset=['title', 'rating', 'genres'], inplace=True)
+df['genres'] = df['genres'].apply(lambda x: x.split('|'))
+# Function to get movies based on an exact rating
+def get_rating_based_recommendations(min_rating):
+ filtered_movies = df[df['rating'] == min_rating]
+ if len(filtered_movies) < 5:
+ return filtered_movies[['title', 'rating', 'genres']]
+ return filtered_movies.sample(5)[['title', 'rating', 'genres']]
+# Function to filter movies by mood and genres
+def get_mood_based_recommendations(mood):
+ mood_mapping = {
+ 'happy': 'positive',
+ 'sad': 'negative',
+ 'angry': 'negative',
+ 'low': 'negative',
+ 'fear': 'negative',
+ 'anxiety': 'negative'
+ }
+ sentiment = mood_mapping.get(mood.lower(), 'positive')
+ filtered_movies = df[df['sentiment'] == sentiment]
+
+ # Select specific genres based on mood
+ if mood == 'happy':
+ feel_good_genres = ['Comedy', 'Family', 'Romance']
+ filtered_movies = filtered_movies[filtered_movies['genres'].apply(lambda x: any(g in
+feel_good_genres for g in x))]
+
+ if len(filtered_movies) < 5:
+ return filtered_movies[['title', 'rating', 'genres']]
+ return filtered_movies.sample(5)[['title', 'rating', 'genres']]
+# Function for hybrid recommendations based on both rating and mood
+def get_hybrid_recommendations(min_rating, mood):
+ sentiment_movies = get_mood_based_recommendations(mood)
+ hybrid_movies = sentiment_movies[sentiment_movies['rating'] == min_rating]
+
+
+ if len(hybrid_movies) < 5:
+ additional_movies = get_rating_based_recommendations(min_rating)
+ hybrid_movies = pd.concat([hybrid_movies, additional_movies], ignore_index=True)
+
+ # Convert 'genres' list back into a string before calling drop_duplicates()
+ hybrid_movies['genres'] = hybrid_movies['genres'].apply(lambda x: '|'.join(x) if
+isinstance(x, list) else x)
+
+ hybrid_movies = hybrid_movies.drop_duplicates().sample(5)
+
+ return hybrid_movies[['title', 'rating', 'genres']]
+# Function for surprise me recommendation
+def get_surprise_me_recommendation():
+ return df.sample(1)[['title', 'rating', 'genres']]
+# Function to calculate RMSE between predicted and actual ratings
+def calculate_rmse(predicted_ratings, actual_ratings):
+ rmse = np.sqrt(mean_squared_error(actual_ratings, predicted_ratings))
+ return rmse
+# Function to calculate model accuracy using RMSE
+def calculate_model_accuracy(predictions_df):
+ # Extract actual and predicted ratings
+ actual_ratings = predictions_df['rating'].values
+ predicted_ratings = np.full_like(actual_ratings, np.mean(actual_ratings)) # Using the
+average rating as a dummy prediction
+ # Calculate RMSE for the complete model
+ rmse = calculate_rmse(predicted_ratings, actual_ratings)
+
+ print(f"\nModel RMSE Accuracy: {rmse:.4f}")
+ return rmse
+# Flask route to render the homepage
+@app.route('/')
+def index():
+ return render_template('index.html')
+# Flask route to handle the recommendation and calculate RMSE
+@app.route('/recommend', methods=['POST'])
+def recommend():
+ choice = request.form['choice']
+
+if choice in ['rating', 'hybrid']:
+ try:
+ min_rating = float(request.form['rating'])
+ valid_ratings = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
+ if min_rating not in valid_ratings:
+ raise ValueError("Invalid rating value")
+ if choice == 'rating':
+ recommendations = get_rating_based_recommendations(min_rating)
+ calculate_model_accuracy(recommendations) # Calculate RMSE for rating-based
+recommendations
+ return render_template('result.html', recommendations=recommendations,
+method='Rating-based')
+ elif choice == 'hybrid':
+ mood = request.form['mood']
+ recommendations = get_hybrid_recommendations(min_rating, mood)
+ calculate_model_accuracy(recommendations) # Calculate RMSE for hybrid
+recommendations
+ return render_template('result.html', recommendations=recommendations,
+method='Hybrid')
+ except ValueError:
+ error_message = "Please enter a rating between 1 and 5, in increments of 0.5."
+ return render_template('index.html', error_message=error_message)
+ elif choice == 'mood':
+ mood = request.form['mood']
+ recommendations = get_mood_based_recommendations(mood)
+ calculate_model_accuracy(recommendations) # Calculate RMSE for mood-based
+recommendations
+ return render_template('result.html', recommendations=recommendations,
+method='Emotion-based')
+ elif choice == 'surprise':
+ recommendations = get_surprise_me_recommendation()
+ calculate_model_accuracy(recommendations) # Calculate RMSE for surprise me
+recommendations
+ return render_template('result.html', recommendations=recommendations,
+method='Surprise me')
+if _name_ == '_main_':
+ app.run(debug=True)
